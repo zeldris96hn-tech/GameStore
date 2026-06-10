@@ -9,7 +9,7 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCQ5o15Gm335DaP7TIZpXVHEiB621_LhLY",
@@ -28,6 +28,22 @@
   window.firebaseRef = ref;
   window.firebasePush = push;
   window.firebaseReady = true;
+
+  // Escuchar productos en tiempo real desde /products
+  const productsRef = ref(db, '/products');
+  onValue(productsRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      const products = Object.entries(data).map(([id, val]) => ({ id, ...val }));
+      window.firebaseProducts = products;
+      document.dispatchEvent(new CustomEvent('products-loaded', { detail: products }));
+    } else {
+      document.dispatchEvent(new CustomEvent('products-empty'));
+    }
+  }, (error) => {
+    document.dispatchEvent(new CustomEvent('products-error', { detail: error.message }));
+  });
+
   document.dispatchEvent(new Event('firebase-ready'));
 </script>
 
@@ -111,6 +127,7 @@
   }
   .logo::before { color: var(--magenta); animation: glitch1 3.5s infinite; }
   .logo::after  { color: var(--violet);  animation: glitch2 3.5s infinite; clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%); }
+  @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes glitch1 {
     0%,94%,100% { transform: translate(0); opacity: 0; }
     95% { transform: translate(-3px,1px); opacity: 0.8; }
@@ -611,21 +628,24 @@
 <div class="toast-stack" id="toastStack"></div>
 
 <script>
-// ── PRODUCTS DATA ──
-const PRODUCTS = [
-  { id: 'ff-100',  game: 'Free Fire', name: '100 Diamantes',  icon: '💎', price: 45,  badge: null,       colorClass: 'card-ff',   desc: 'Para skins y pases básicos.' },
-  { id: 'ff-310',  game: 'Free Fire', name: '310 Diamantes',  icon: '💎', price: 120, badge: 'POPULAR',   colorClass: 'card-ff',   desc: 'El paquete más vendido.' },
-  { id: 'ff-520',  game: 'Free Fire', name: '520 Diamantes',  icon: '💎', price: 195, badge: null,       colorClass: 'card-ff',   desc: 'Ideal para el pase élite.' },
-  { id: 'rblx-400',  game: 'Roblox',    name: '400 Robux',      icon: '🟡', price: 80,  badge: null,       colorClass: 'card-rblx', desc: 'Artículos y accesorios básicos.' },
-  { id: 'rblx-800',  game: 'Roblox',    name: '800 Robux',      icon: '🟡', price: 150, badge: 'POPULAR',   colorClass: 'card-rblx', desc: 'El favorito de la comunidad.' },
-  { id: 'val-475',   game: 'Valorant',  name: '475 VP',         icon: '🔺', price: 95,  badge: null,       colorClass: 'card-val',  desc: 'Para spray y carta de jugador.' },
-  { id: 'val-1000',  game: 'Valorant',  name: '1000 VP',        icon: '🔺', price: 185, badge: 'NUEVO',     colorClass: 'card-val',  desc: 'Desbloquea skins tier 1.' },
-  { id: 'ml-254',  game: 'Mobile Legends', name: '254 Diamantes', icon: '⚡', price: 90,  badge: null,      colorClass: 'card-ml',   desc: 'Para heroes y skins de batalla.' },
-  { id: 'cod-200',   game: 'Call of Duty', name: '200 CP',        icon: '🪖', price: 100, badge: null,       colorClass: 'card-cod',  desc: 'Puntos de COD Mobile.' },
-  { id: 'cod-420',   game: 'Call of Duty', name: '420 CP',        icon: '🪖', price: 190, badge: 'POPULAR',  colorClass: 'card-cod',  desc: 'Paquete táctico completo.' },
-  { id: 'clash-80',  game: 'Clash of Clans', name: '80 Gemas',   icon: '💜', price: 35,  badge: null,       colorClass: 'card-clash', desc: 'Acelera construcciones.' },
-  { id: 'clash-500', game: 'Clash of Clans', name: '500 Gemas',  icon: '💜', price: 185, badge: 'NUEVO',    colorClass: 'card-clash', desc: 'El paquete del constructor.' },
-];
+// ── PRODUCTS DATA (dinámico desde Firebase) ──
+let PRODUCTS = [];
+
+// Iconos y colores por juego
+const GAME_STYLES = {
+  'free fire':        { icon: '💎', colorClass: 'card-ff' },
+  'roblox':           { icon: '🟡', colorClass: 'card-rblx' },
+  'valorant':         { icon: '🔺', colorClass: 'card-val' },
+  'mobile legends':   { icon: '⚡', colorClass: 'card-ml' },
+  'call of duty':     { icon: '🪖', colorClass: 'card-cod' },
+  'clash of clans':   { icon: '💜', colorClass: 'card-clash' },
+};
+
+function getGameStyle(gameName) {
+  if (!gameName) return { icon: '🎮', colorClass: 'card-ff' };
+  const key = Object.keys(GAME_STYLES).find(k => gameName.toLowerCase().includes(k));
+  return key ? GAME_STYLES[key] : { icon: '🎮', colorClass: 'card-ff' };
+}
 
 // ── CART STATE ──
 let cart = []; // [{product, qty}]
@@ -653,21 +673,63 @@ let cart = []; // [{product, qty}]
 // ── RENDER PRODUCTS ──
 function renderProducts() {
   const grid = document.getElementById('productGrid');
-  grid.innerHTML = PRODUCTS.map(p => `
-    <div class="product-card ${p.colorClass}">
-      ${p.badge ? `<span class="card-badge badge-${p.badge==='POPULAR'?'popular':'new'}">${p.badge}</span>` : ''}
+
+  if (PRODUCTS.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
+        <div style="font-size:3rem; margin-bottom:16px;">🎮</div>
+        <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--text);">CARGANDO PRODUCTOS...</div>
+        <div style="font-size:0.85rem;">Conectando con Firebase</div>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = PRODUCTS.map(p => {
+    const style = getGameStyle(p.game || p.productGame || '');
+    return `
+    <div class="product-card ${style.colorClass}">
       <div class="card-body">
-        <span class="card-icon">${p.icon}</span>
-        <div class="card-game">${p.game}</div>
-        <div class="card-name">${p.name}</div>
-        <div class="card-desc">${p.desc}</div>
+        <span class="card-icon">${style.icon}</span>
+        <div class="card-game">${p.game || p.productGame || 'Gaming'}</div>
+        <div class="card-name">${p.name || p.productName}</div>
+        <div class="card-desc">${p.description || p.desc || ''}</div>
         <div class="card-footer">
-          <span class="card-price">L ${p.price}<small>c/u</small></span>
+          <span class="card-price">L ${Number(p.price || p.unitPrice || 0).toFixed(2)}<small>c/u</small></span>
           <button class="add-btn" onclick="addToCart('${p.id}')">+ AÑADIR</button>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+function showLoadingState() {
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = `
+    <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
+      <div style="font-size:3rem; margin-bottom:16px; animation:spin 1s linear infinite; display:inline-block;">⚡</div>
+      <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--text);">CARGANDO PRODUCTOS</div>
+      <div style="font-size:0.85rem;">Conectando con Firebase...</div>
+    </div>`;
+}
+
+function showEmptyState() {
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = `
+    <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
+      <div style="font-size:3rem; margin-bottom:16px;">📦</div>
+      <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--text);">SIN PRODUCTOS</div>
+      <div style="font-size:0.85rem;">Agrega productos desde tu app Android.</div>
+    </div>`;
+}
+
+function showErrorState(msg) {
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = `
+    <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
+      <div style="font-size:3rem; margin-bottom:16px;">⚠️</div>
+      <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--magenta);">ERROR DE CONEXIÓN</div>
+      <div style="font-size:0.85rem;">${msg || 'Revisa tu conexión a internet.'}</div>
+    </div>`;
 }
 
 // ── CART LOGIC ──
@@ -678,11 +740,17 @@ function addToCart(productId) {
   if (existing) {
     existing.qty++;
   } else {
-    cart.push({ product, qty: 1 });
+    // Normalizar campos del producto
+    const normalized = {
+      id: product.id,
+      name: product.name || product.productName,
+      game: product.game || product.productGame || 'Gaming',
+      price: Number(product.price || product.unitPrice || 0),
+    };
+    cart.push({ product: normalized, qty: 1 });
   }
   updateCartUI();
   openCart();
-  // animate count
   const cc = document.getElementById('cartCount');
   cc.classList.remove('pop');
   void cc.offsetWidth;
@@ -818,8 +886,27 @@ document.getElementById('newOrderBtn').addEventListener('click', () => {
 });
 
 // ── INIT ──
-renderProducts();
+showLoadingState();
 updateCartUI();
+
+// Escuchar eventos de Firebase
+document.addEventListener('products-loaded', (e) => {
+  PRODUCTS = e.detail;
+  renderProducts();
+});
+document.addEventListener('products-empty', () => {
+  PRODUCTS = [];
+  showEmptyState();
+});
+document.addEventListener('products-error', (e) => {
+  showErrorState(e.detail);
+});
+
+// Si Firebase ya cargó antes de que se registraran los listeners
+if (window.firebaseProducts && window.firebaseProducts.length > 0) {
+  PRODUCTS = window.firebaseProducts;
+  renderProducts();
+}
 </script>
 </body>
 </html>

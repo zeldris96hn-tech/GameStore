@@ -222,6 +222,39 @@ header{padding:20px 0;border-bottom:1px solid #ffffff12;position:sticky;top:0;z-
 .receipt-preview.show{display:block}
 
 /* CONFIRM BTN */
+.continue-btn{
+  width:100%;
+  background:transparent;
+  border:2px solid var(--cyan);
+  color:var(--cyan);
+  font-family:'Orbitron',monospace;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:1.5px;
+  padding:12px;
+  cursor:pointer;
+  text-align:center;
+  border-radius:50px;
+  position:relative;
+  animation:continuePulse 1s ease-in-out infinite;
+  text-transform:uppercase;
+  transition:background .2s;
+}
+.continue-btn:hover{background:#00ffcc18}
+.continue-btn:active{opacity:.8}
+@keyframes continuePulse{
+  0%,100%{
+    border-color:var(--cyan);
+    box-shadow:0 0 6px #00ffcc44, inset 0 0 6px #00ffcc11;
+    color:var(--cyan);
+  }
+  50%{
+    border-color:#fff;
+    box-shadow:0 0 18px #00ffccaa, 0 0 40px #00ffcc44, inset 0 0 12px #00ffcc22;
+    color:#fff;
+    text-shadow:0 0 8px #00ffcc;
+  }
+}
 .confirm-btn{width:100%;background:linear-gradient(90deg,var(--vio),var(--cyan));border:none;color:var(--bg);font-family:'Orbitron',monospace;font-size:.82rem;font-weight:900;letter-spacing:2px;padding:15px;cursor:pointer;position:relative;overflow:hidden;transition:filter .2s,transform .15s;clip-path:polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%)}
 .confirm-btn:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 4px 20px #7b2fff66}
 .confirm-btn:active{transform:translateY(0)}
@@ -308,53 +341,6 @@ footer span{color:var(--vio)}
 .tabs-hint::before{content:'👆';font-size:.9rem}
 
 
-/* FLOATING CONTINUE BUTTON */
-.float-continue{
-  z-index:999;
-  position:fixed;
-  bottom:28px;
-  right:20px;
-  display:none;
-  align-items:center;
-  gap:10px;
-  background:linear-gradient(135deg,var(--vio),#00ffcc);
-  border:none;
-  color:var(--bg);
-  font-family:'Orbitron',monospace;
-  font-size:.7rem;
-  font-weight:900;
-  letter-spacing:1.5px;
-  padding:14px 20px;
-  cursor:pointer;
-  border-radius:50px;
-  box-shadow:0 4px 24px #7b2fff88, 0 0 0 2px #7b2fff, 0 8px 32px #00000066;
-  animation:floatBob 2.5s ease-in-out infinite;
-  transition:transform .2s, box-shadow .2s;
-  white-space:nowrap;
-}
-.float-continue.show{display:flex}
-.float-continue:hover{
-  transform:scale(1.06) translateY(-2px);
-  box-shadow:0 6px 32px #00ffcc88, 0 0 0 2px var(--cyan), 0 12px 40px #00000088;
-}
-.float-continue:active{transform:scale(.97)}
-.float-continue .fc-icon{font-size:1.1rem}
-@keyframes floatBob{
-  0%,100%{transform:translateY(0)}
-  50%{transform:translateY(-6px)}
-}
-/* pulse ring */
-.float-continue::before{
-  content:'';
-  position:absolute;
-  inset:-4px;
-  border-radius:50px;
-  border:2px solid var(--cyan);
-  animation:pulseRing 2s ease-out infinite;
-  pointer-events:none;
-}
-@keyframes pulseRing{
-  0%{opacity:.8;transform:scale(1)}
   100%{opacity:0;transform:scale(1.15)}
 }
 @media(max-width:600px){.hero{padding:40px 16px 28px}.product-grid{grid-template-columns:1fr 1fr;gap:10px}.card-body{padding:8px 10px 6px}.card-name{font-size:.72rem}.card-img-wrap{height:95px}.card-price{font-size:.9rem}}
@@ -452,6 +438,9 @@ footer span{color:var(--vio)}
       <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
     </div>
 
+    <button class="continue-btn" id="continueBtn" onclick="closeCart()">
+      🛍️ SEGUIR COMPRANDO
+    </button>
     <button class="confirm-btn" id="confirmBtn">
       <span class="btn-glow"></span>
       ENVIAR PEDIDO
@@ -472,11 +461,7 @@ footer span{color:var(--vio)}
 
 <div class="toast-stack" id="toastStack"></div>
 
-<!-- Floating continue shopping button -->
-<button class="float-continue" id="floatContinue" onclick="closeCart()">
-  <span class="fc-icon">🛍️</span>
-  SEGUIR COMPRANDO
-</button>
+
 
 <script>
 // ══════════════════════════════════════════
@@ -727,14 +712,14 @@ function openCart() {
   document.getElementById('cartDrawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
-  document.getElementById('floatContinue').classList.add('show');
+  
 }
 function closeCart() {
   document.getElementById('cartDrawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
   document.body.style.overflow = '';
   // Always hide when cart closes — user is already browsing
-  document.getElementById('floatContinue').classList.remove('show');
+  
 }
 document.getElementById('cartToggle').addEventListener('click', openCart);
 document.getElementById('cartClose').addEventListener('click', closeCart);

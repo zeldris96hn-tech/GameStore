@@ -628,17 +628,21 @@
 <div class="toast-stack" id="toastStack"></div>
 
 <script>
-// ── PRODUCTS DATA (dinámico desde Firebase) ──
-let PRODUCTS = [];
+// ══════════════════════════════════════════
+//  GAMESSTORE — LÓGICA PRINCIPAL
+// ══════════════════════════════════════════
 
-// Iconos y colores por juego
+let PRODUCTS = [];
+let cart = [];
+
+// ── ESTILOS POR JUEGO ──
 const GAME_STYLES = {
-  'free fire':        { icon: '💎', colorClass: 'card-ff' },
-  'roblox':           { icon: '🟡', colorClass: 'card-rblx' },
-  'valorant':         { icon: '🔺', colorClass: 'card-val' },
-  'mobile legends':   { icon: '⚡', colorClass: 'card-ml' },
-  'call of duty':     { icon: '🪖', colorClass: 'card-cod' },
-  'clash of clans':   { icon: '💜', colorClass: 'card-clash' },
+  'free fire':      { icon: '💎', colorClass: 'card-ff' },
+  'roblox':         { icon: '🟡', colorClass: 'card-rblx' },
+  'valorant':       { icon: '🔺', colorClass: 'card-val' },
+  'mobile legends': { icon: '⚡', colorClass: 'card-ml' },
+  'call of duty':   { icon: '🪖', colorClass: 'card-cod' },
+  'clash of clans': { icon: '💜', colorClass: 'card-clash' },
 };
 
 function getGameStyle(gameName) {
@@ -647,10 +651,7 @@ function getGameStyle(gameName) {
   return key ? GAME_STYLES[key] : { icon: '🎮', colorClass: 'card-ff' };
 }
 
-// ── CART STATE ──
-let cart = []; // [{product, qty}]
-
-// ── PARTICLES ──
+// ── PARTÍCULAS ──
 (function spawnParticles() {
   const container = document.getElementById('particles');
   const colors = ['#00ffcc', '#ff006e', '#7b2fff', '#ffffff'];
@@ -658,172 +659,139 @@ let cart = []; // [{product, qty}]
     const p = document.createElement('div');
     p.className = 'particle';
     const size = Math.random() * 4 + 1;
-    p.style.cssText = `
-      width:${size}px; height:${size}px;
-      left:${Math.random()*100}%;
-      background:${colors[Math.floor(Math.random()*colors.length)]};
-      animation-duration:${8+Math.random()*14}s;
-      animation-delay:${Math.random()*10}s;
-      filter: blur(${size>3?1:0}px);
-    `;
+    p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${8+Math.random()*14}s;animation-delay:${Math.random()*10}s;filter:blur(${size>3?1:0}px);`;
     container.appendChild(p);
   }
 })();
 
-// ── RENDER PRODUCTS ──
+// ── RENDER PRODUCTOS ──
 function renderProducts() {
   const grid = document.getElementById('productGrid');
+  grid.innerHTML = '';
 
-  if (PRODUCTS.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
-        <div style="font-size:3rem; margin-bottom:16px;">🎮</div>
-        <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--text);">CARGANDO PRODUCTOS...</div>
-        <div style="font-size:0.85rem;">Conectando con Firebase</div>
-      </div>`;
+  if (!PRODUCTS || PRODUCTS.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:64px 0;color:var(--muted);"><div style="font-size:3rem;margin-bottom:16px;">📦</div><div style="font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:2px;color:var(--text);">SIN PRODUCTOS</div><div style="font-size:0.85rem;margin-top:8px;">Agrega productos desde tu app Android.</div></div>';
     return;
   }
 
-  grid.innerHTML = PRODUCTS.map(p => {
-    const style = getGameStyle(p.game || p.productGame || '');
-    const safeId = String(p.id);
-    return `
-    <div class="product-card ${style.colorClass}">
-      <div class="card-body">
-        <span class="card-icon">${style.icon}</span>
-        <div class="card-game">${p.game || p.productGame || 'Gaming'}</div>
-        <div class="card-name">${p.name || p.productName}</div>
-        <div class="card-desc">${p.description || p.desc || ''}</div>
-        <div class="card-footer">
-          <span class="card-price">L ${Number(p.price || p.unitPrice || 0).toFixed(2)}<small>c/u</small></span>
-          <button class="add-btn" data-product-id="${safeId}">+ AÑADIR</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  PRODUCTS.forEach(function(p) {
+    const style = getGameStyle(p.game || '');
+    const pid   = String(p.id);
+    const name  = p.name  || p.productName  || 'Producto';
+    const game  = p.game  || p.productGame  || 'Gaming';
+    const price = Number(p.price || p.unitPrice || 0);
+    const desc  = p.description || p.desc || '';
+
+    // Crear tarjeta con createElement (sin innerHTML dinámico)
+    const card = document.createElement('div');
+    card.className = 'product-card ' + style.colorClass;
+    card.innerHTML =
+      '<div class="card-body">' +
+        '<span class="card-icon">' + style.icon + '</span>' +
+        '<div class="card-game">' + game + '</div>' +
+        '<div class="card-name">' + name + '</div>' +
+        '<div class="card-desc">' + desc + '</div>' +
+        '<div class="card-footer">' +
+          '<span class="card-price">L ' + price.toFixed(2) + '<small>c/u</small></span>' +
+          '<button class="add-btn" type="button">+ AÑADIR</button>' +
+        '</div>' +
+      '</div>';
+
+    // Vincular evento directamente al botón — sin delegación, sin data-attr
+    const btn = card.querySelector('.add-btn');
+    btn.addEventListener('click', function() {
+      addToCart(pid, name, game, price);
+    });
+
+    grid.appendChild(card);
+  });
 }
 
 function showLoadingState() {
   const grid = document.getElementById('productGrid');
-  grid.innerHTML = `
-    <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
-      <div style="font-size:3rem; margin-bottom:16px; animation:spin 1s linear infinite; display:inline-block;">⚡</div>
-      <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--text);">CARGANDO PRODUCTOS</div>
-      <div style="font-size:0.85rem;">Conectando con Firebase...</div>
-    </div>`;
-}
-
-function showEmptyState() {
-  const grid = document.getElementById('productGrid');
-  grid.innerHTML = `
-    <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
-      <div style="font-size:3rem; margin-bottom:16px;">📦</div>
-      <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--text);">SIN PRODUCTOS</div>
-      <div style="font-size:0.85rem;">Agrega productos desde tu app Android.</div>
-    </div>`;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:64px 0;color:var(--muted);"><div style="font-size:3rem;margin-bottom:16px;animation:spin 1s linear infinite;display:inline-block;">⚡</div><div style="font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:2px;margin-top:8px;color:var(--text);">CARGANDO PRODUCTOS</div><div style="font-size:0.85rem;margin-top:8px;">Conectando con Firebase...</div></div>';
 }
 
 function showErrorState(msg) {
   const grid = document.getElementById('productGrid');
-  grid.innerHTML = `
-    <div style="grid-column:1/-1; text-align:center; padding:64px 0; color:var(--muted);">
-      <div style="font-size:3rem; margin-bottom:16px;">⚠️</div>
-      <div style="font-family:'Orbitron',monospace; font-size:0.85rem; letter-spacing:2px; margin-bottom:8px; color:var(--magenta);">ERROR DE CONEXIÓN</div>
-      <div style="font-size:0.85rem;">${msg || 'Revisa tu conexión a internet.'}</div>
-    </div>`;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:64px 0;color:var(--muted);"><div style="font-size:3rem;margin-bottom:16px;">⚠️</div><div style="font-family:Orbitron,monospace;font-size:0.85rem;letter-spacing:2px;color:var(--magenta);">ERROR DE CONEXIÓN</div><div style="font-size:0.85rem;margin-top:8px;">' + (msg || 'Revisa tu conexión.') + '</div></div>';
 }
 
-// ── DELEGACIÓN DE EVENTOS para botones dinámicos ──
-document.getElementById('productGrid').addEventListener('click', function(e) {
-  const btn = e.target.closest('[data-product-id]');
-  if (btn) addToCart(String(btn.dataset.productId));
-});
-
-// ── CART LOGIC ──
-function addToCart(productId) {
-  // Comparar como strings para evitar problemas con IDs de Firebase
-  const pid = String(productId);
-  const product = PRODUCTS.find(p => String(p.id) === pid);
-  if (!product) { console.warn('Producto no encontrado:', pid); return; }
-  const existing = cart.find(i => i.product.id === pid);
+// ── CARRITO ──
+function addToCart(pid, name, game, price) {
+  const existing = cart.find(function(i) { return i.id === pid; });
   if (existing) {
     existing.qty++;
   } else {
-    const normalized = {
-      id: pid,
-      name: product.name || product.productName || 'Producto',
-      game: product.game || product.productGame || 'Gaming',
-      price: Number(product.price || product.unitPrice || 0),
-    };
-    cart.push({ product: normalized, qty: 1 });
+    cart.push({ id: pid, name: name, game: game, price: price, qty: 1 });
   }
   updateCartUI();
   openCart();
-  const cc = document.getElementById('cartCount');
+  var cc = document.getElementById('cartCount');
   cc.classList.remove('pop');
   void cc.offsetWidth;
   cc.classList.add('pop');
 }
 
-function changeQty(productId, delta) {
-  const idx = cart.findIndex(i => i.product.id === String(productId));
+function changeQty(pid, delta) {
+  var idx = cart.findIndex(function(i) { return i.id === pid; });
   if (idx === -1) return;
   cart[idx].qty += delta;
   if (cart[idx].qty <= 0) cart.splice(idx, 1);
   updateCartUI();
 }
 
-function removeItem(productId) {
-  cart = cart.filter(i => i.product.id !== String(productId));
+function removeItem(pid) {
+  cart = cart.filter(function(i) { return i.id !== pid; });
   updateCartUI();
 }
 
 function getTotal() {
-  return cart.reduce((s, i) => s + i.product.price * i.qty, 0);
+  return cart.reduce(function(s, i) { return s + i.price * i.qty; }, 0);
 }
 
 function getTotalItems() {
-  return cart.reduce((s, i) => s + i.qty, 0);
+  return cart.reduce(function(s, i) { return s + i.qty; }, 0);
 }
 
 function updateCartUI() {
   document.getElementById('cartCount').textContent = getTotalItems();
-  document.getElementById('totalAmount').textContent = `L ${getTotal().toFixed(2)}`;
+  document.getElementById('totalAmount').textContent = 'L ' + getTotal().toFixed(2);
 
-  const container = document.getElementById('drawerItems');
+  var container = document.getElementById('drawerItems');
+  container.innerHTML = '';
+
   if (cart.length === 0) {
-    container.innerHTML = `<div class="drawer-empty"><span class="empty-icon">🛒</span>Tu carrito está vacío.<br>¡Agrega productos para comenzar!</div>`;
+    container.innerHTML = '<div class="drawer-empty"><span class="empty-icon">🛒</span>Tu carrito está vacío.<br>¡Agrega productos para comenzar!</div>';
     return;
   }
-  container.innerHTML = cart.map(item => `
-    <div class="cart-item">
-      <div>
-        <div class="ci-game">${item.product.game}</div>
-        <div class="ci-name">${item.product.name}</div>
-        <div class="ci-controls">
-          <button class="qty-btn" data-action="decrease" data-id="${item.product.id}">−</button>
-          <span class="ci-qty">${item.qty}</span>
-          <button class="qty-btn" data-action="increase" data-id="${item.product.id}">+</button>
-          <button class="ci-remove" data-action="remove" data-id="${item.product.id}" title="Eliminar">🗑</button>
-        </div>
-      </div>
-      <div class="ci-subtotal">L ${(item.product.price * item.qty).toFixed(2)}</div>
-    </div>
-  `).join('');
 
-  // Delegación de eventos para los controles del carrito
-  container.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = String(btn.dataset.id);
-      const action = btn.dataset.action;
-      if (action === 'increase') changeQty(id, 1);
-      else if (action === 'decrease') changeQty(id, -1);
-      else if (action === 'remove') removeItem(id);
-    });
+  cart.forEach(function(item) {
+    var row = document.createElement('div');
+    row.className = 'cart-item';
+    row.innerHTML =
+      '<div>' +
+        '<div class="ci-game">' + item.game + '</div>' +
+        '<div class="ci-name">' + item.name + '</div>' +
+        '<div class="ci-controls">' +
+          '<button class="qty-btn" type="button">−</button>' +
+          '<span class="ci-qty">' + item.qty + '</span>' +
+          '<button class="qty-btn" type="button">+</button>' +
+          '<button class="ci-remove" type="button" title="Eliminar">🗑</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ci-subtotal">L ' + (item.price * item.qty).toFixed(2) + '</div>';
+
+    var btns = row.querySelectorAll('.qty-btn');
+    btns[0].addEventListener('click', function() { changeQty(item.id, -1); });
+    btns[1].addEventListener('click', function() { changeQty(item.id,  1); });
+    row.querySelector('.ci-remove').addEventListener('click', function() { removeItem(item.id); });
+
+    container.appendChild(row);
   });
 }
 
-// ── DRAWER TOGGLE ──
+// ── DRAWER ──
 function openCart() {
   document.getElementById('cartDrawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
@@ -839,59 +807,51 @@ document.getElementById('cartClose').addEventListener('click', closeCart);
 document.getElementById('drawerOverlay').addEventListener('click', closeCart);
 
 // ── TOAST ──
-function toast(title, message, type = 'success') {
-  const stack = document.getElementById('toastStack');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `<div class="toast-title">${title}</div>${message}`;
+function toast(title, message, type) {
+  type = type || 'success';
+  var stack = document.getElementById('toastStack');
+  var t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.innerHTML = '<div class="toast-title">' + title + '</div>' + message;
   stack.appendChild(t);
-  setTimeout(() => t.remove(), 3400);
+  setTimeout(function() { t.remove(); }, 3400);
 }
 
-// ── CONFIRM ORDER ──
-document.getElementById('confirmBtn').addEventListener('click', async () => {
-  const name = document.getElementById('customerName').value.trim();
+// ── CONFIRMAR PEDIDO ──
+document.getElementById('confirmBtn').addEventListener('click', async function() {
+  var name = document.getElementById('customerName').value.trim();
   if (cart.length === 0) { toast('Carrito vacío', 'Agrega al menos un producto.', 'error'); return; }
   if (!name) { toast('Falta tu nombre', 'Ingresa tu nombre para continuar.', 'error'); document.getElementById('customerName').focus(); return; }
 
-  const btn = document.getElementById('confirmBtn');
+  var btn = document.getElementById('confirmBtn');
   btn.disabled = true;
   btn.textContent = 'PROCESANDO…';
 
-  const orderData = {
+  var orderData = {
     customerName: name,
-    items: cart.map(i => ({
-      productName: i.product.name,
-      productGame: i.product.game,
-      quantity: i.qty,
-      unitPrice: i.product.price
-    })),
+    items: cart.map(function(i) {
+      return { productName: i.name, productGame: i.game, quantity: i.qty, unitPrice: i.price };
+    }),
     total: getTotal(),
     status: 'PENDING',
     createdAt: Date.now()
   };
 
   try {
-    // Wait for Firebase to be ready
     if (!window.firebaseReady) {
-      await new Promise(resolve => document.addEventListener('firebase-ready', resolve, {once:true}));
+      await new Promise(function(resolve) { document.addEventListener('firebase-ready', resolve, { once: true }); });
     }
-    const ordersRef = window.firebaseRef(window.firebaseDB, '/orders');
-    const result = await window.firebasePush(ordersRef, orderData);
-    const orderId = result.key;
+    var ordersRef = window.firebaseRef(window.firebaseDB, '/orders');
+    var result = await window.firebasePush(ordersRef, orderData);
 
-    // Success!
     closeCart();
-    document.getElementById('orderId').textContent = `ORDER ID: ${orderId}`;
+    document.getElementById('orderId').textContent = 'ORDER ID: ' + result.key;
     document.getElementById('successOverlay').classList.add('show');
-
-    // Reset
     cart = [];
     document.getElementById('customerName').value = '';
     updateCartUI();
-
-  } catch (err) {
-    console.error('Firebase error:', err);
+  } catch(err) {
+    console.error(err);
     toast('Error al guardar', 'Revisa tu conexión e intenta nuevamente.', 'error');
   } finally {
     btn.disabled = false;
@@ -899,8 +859,8 @@ document.getElementById('confirmBtn').addEventListener('click', async () => {
   }
 });
 
-// ── NEW ORDER ──
-document.getElementById('newOrderBtn').addEventListener('click', () => {
+// ── NUEVO PEDIDO ──
+document.getElementById('newOrderBtn').addEventListener('click', function() {
   document.getElementById('successOverlay').classList.remove('show');
 });
 
@@ -908,20 +868,18 @@ document.getElementById('newOrderBtn').addEventListener('click', () => {
 showLoadingState();
 updateCartUI();
 
-// Escuchar eventos de Firebase
-document.addEventListener('products-loaded', (e) => {
+document.addEventListener('products-loaded', function(e) {
   PRODUCTS = e.detail;
   renderProducts();
 });
-document.addEventListener('products-empty', () => {
+document.addEventListener('products-empty', function() {
   PRODUCTS = [];
-  showEmptyState();
+  renderProducts();
 });
-document.addEventListener('products-error', (e) => {
+document.addEventListener('products-error', function(e) {
   showErrorState(e.detail);
 });
 
-// Si Firebase ya cargó antes de que se registraran los listeners
 if (window.firebaseProducts && window.firebaseProducts.length > 0) {
   PRODUCTS = window.firebaseProducts;
   renderProducts();
